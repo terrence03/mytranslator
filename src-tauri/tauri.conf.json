@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyTranslator",
+  "version": "0.1.0",
+  "identifier": "com.chienhua.mytranslator",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "MyTranslator",
+        "width": 760,
+        "height": 600,
+        "minWidth": 560,
+        "minHeight": 480,
+        "center": true
+      },
+      {
+        "label": "popup",
+        "title": "翻譯",
+        "width": 420,
+        "height": 300,
+        "visible": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "transparent": true,
+        "shadow": false,
+        "closable": false,
+        "minimizable": false,
+        "maximizable": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "app", "dmg", "appimage"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* popup 視窗需要透明背景以呈現圓角卡片；設定頁自行鋪滿底色 */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+}
+
+* {
+  user-select: none;
+}
+
+.selectable {
+  user-select: text;
+}

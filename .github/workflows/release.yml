@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+            libdbus-1-dev libx11-dev libxi-dev libxtst-dev
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install
+
+      - name: Frontend typecheck and build
+        run: pnpm build
+
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS 出 universal binary（Apple Silicon + Intel 通吃）
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+          # AppImage 在舊版 Ubuntu 建置以獲得最大 glibc 相容性
+          - platform: ubuntu-22.04
+            args: ""
+            rust-targets: ""
+          - platform: windows-latest
+            args: ""
+            rust-targets: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+            libdbus-1-dev libx11-dev libxi-dev libxtst-dev
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install
+
+      - name: Build and publish release assets
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "MyTranslator ${{ github.ref_name }}"
+          releaseBody: |
+            | 平台 | 檔案 |
+            |---|---|
+            | Windows 安裝版 | `*-setup.exe` |
+            | Windows 免安裝版 | `*-portable.exe`（需系統有 WebView2，Win10/11 通常內建） |
+            | macOS | `*.dmg`（未簽名，首次開啟需 `xattr -cr MyTranslator.app`） |
+            | Linux | `*.AppImage`（`chmod +x` 後直接執行） |
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      # tauri-action 只上傳 bundle 產物，portable exe（cargo 產出的裸執行檔，
+      # 前端資產已內嵌）需另外改名上傳
+      - name: Upload portable exe (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $exe = Get-ChildItem src-tauri/target/release -Filter *.exe |
+            Where-Object { $_.BaseName -in @('mytranslator', 'MyTranslator') } |
+            Select-Object -First 1
+          if (-not $exe) { throw "portable exe not found in src-tauri/target/release" }
+          $portable = "MyTranslator-$tag-portable.exe"
+          Copy-Item $exe.FullName $portable
+          gh release upload $tag $portable --clobber

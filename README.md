@@ -66,6 +66,16 @@ pnpm build                        # 前端型別檢查 + 建置
 
 - **WSL2**：WSLg 可跑 Linux 版做冒煙測試與編譯/單元測試，但 WSLg 鍵盤輸入走 RDP 不經 evdev、也攔不到 Windows 原生按鍵，`Ctrl+C+C` 全流程請在 Windows 原生或實機 Linux 驗證。
 
+## 發佈（CI）
+
+本機不需要任何平台工具鏈。GitHub Actions 會在打 tag 時自動建置三平台產物並發佈 Release：
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+產物：Windows 安裝版（NSIS `*-setup.exe`）與免安裝版（`*-portable.exe`，前端已內嵌、僅依賴系統 WebView2）、macOS universal `.dmg`（Apple Silicon + Intel）、Linux `.AppImage`。另有 `ci.yml` 在每次 push/PR 跑前端建置、`cargo test` 與警告檢查。
+
 ## 已知限制
 
 - Google 免費端點為非官方介面，可能被限流（429）；遇到時可切換 Gemini 引擎

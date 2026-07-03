@@ -14,8 +14,10 @@ export default function Popup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showSource, setShowSource] = useState(false);
   // 只顯示最後一次請求的結果，避免慢的舊請求蓋掉新結果
   const requestSeq = useRef(0);
+  const editDebounce = useRef<number | undefined>(undefined);
 
   const runTranslate = useCallback(
     async (text: string, engine: string, targetLang: string) => {
@@ -44,6 +46,7 @@ export default function Popup() {
 
     const unlisten = listen<string>("translate-request", async (event) => {
       const text = event.payload;
+      window.clearTimeout(editDebounce.current);
       setSourceText(text);
       // 每次觸發都重讀設定，讓設定頁的變更即時生效
       let engine = engineId;
@@ -66,18 +69,16 @@ export default function Popup() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 視窗保留到使用者按 Esc 或 ✕ 才關閉，失焦不自動隱藏
   useEffect(() => {
     const win = getCurrentWindow();
-    const unlisten = win.onFocusChanged(({ payload: focused }) => {
-      if (!focused) void win.hide();
-    });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") void win.hide();
     };
     window.addEventListener("keydown", onKey);
     return () => {
-      unlisten.then((fn) => fn());
       window.removeEventListener("keydown", onKey);
+      window.clearTimeout(editDebounce.current);
     };
   }, []);
 
@@ -91,6 +92,16 @@ export default function Popup() {
     await api.copyText(result);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  // 編輯原文後稍等使用者停止輸入再重新翻譯
+  const editSource = (text: string) => {
+    setSourceText(text);
+    window.clearTimeout(editDebounce.current);
+    if (!text.trim()) return;
+    editDebounce.current = window.setTimeout(() => {
+      runTranslate(text, engineId, target);
+    }, 500);
   };
 
   return (
@@ -142,8 +153,23 @@ export default function Popup() {
         )}
       </div>
 
-      <footer className="truncate border-t border-zinc-800 px-3 py-1.5 text-xs text-zinc-500">
-        {sourceText}
+      <footer className="border-t border-zinc-800">
+        <button
+          onClick={() => setShowSource((v) => !v)}
+          className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
+        >
+          <span className="shrink-0">{showSource ? "▾" : "▸"} 原文</span>
+          {!showSource && <span className="truncate">{sourceText}</span>}
+        </button>
+        {showSource && (
+          <textarea
+            value={sourceText}
+            onChange={(e) => editSource(e.target.value)}
+            rows={3}
+            spellCheck={false}
+            className="selectable block w-full resize-none bg-transparent px-3 pb-2 text-xs leading-relaxed text-zinc-300 outline-none"
+          />
+        )}
       </footer>
     </div>
   );

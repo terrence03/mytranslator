@@ -8,9 +8,8 @@ import {
 import { TARGET_LANGS } from "../../lib/languages";
 
 const GEMINI_MODEL_SUGGESTIONS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-2.5-pro",
+  "gemma-4-31b-it",
+  "gemini-3.1-flash-lite",
 ];
 
 const IS_MAC = navigator.userAgent.includes("Mac");
@@ -178,6 +177,9 @@ export default function Settings() {
               ))}
             </datalist>
           </Field>
+          <p className="text-xs text-zinc-500">
+            建議使用 gemma-4-31b-it；gemini-3.1-flash-lite 免費用量較多。
+          </p>
           {keyStatus.kind !== "idle" && (
             <p
               className={`text-xs ${

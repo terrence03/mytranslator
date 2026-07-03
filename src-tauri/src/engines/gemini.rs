@@ -5,7 +5,7 @@ use super::{
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-pub const DEFAULT_MODEL: &str = "gemini-2.5-flash";
+pub const DEFAULT_MODEL: &str = "gemma-4-31b-it";
 
 const SYSTEM_PROMPT: &str = "You are a translation engine. Translate the text given by the user \
 into the requested target language. Output ONLY the translation with the original formatting \
@@ -43,18 +43,26 @@ impl TranslationEngine for GeminiEngine {
         let url = format!(
             "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         );
-        let body = json!({
-            "system_instruction": { "parts": [{ "text": SYSTEM_PROMPT }] },
+        let user_text = format!(
+            "Translate into {}:\n\n{}",
+            lang_display(&req.target),
+            req.text
+        );
+        // Gemma 系列不支援 system_instruction，改併入 user 訊息
+        let mut body = json!({
             "contents": [{
                 "role": "user",
-                "parts": [{ "text": format!(
-                    "Translate into {}:\n\n{}",
-                    lang_display(&req.target),
-                    req.text
-                )}]
+                "parts": [{ "text": if model.starts_with("gemma") {
+                    format!("{SYSTEM_PROMPT}\n\n{user_text}")
+                } else {
+                    user_text
+                }}]
             }],
             "generationConfig": { "temperature": 0.2 }
         });
+        if !model.starts_with("gemma") {
+            body["system_instruction"] = json!({ "parts": [{ "text": SYSTEM_PROMPT }] });
+        }
 
         let resp = http_client()
             .post(&url)

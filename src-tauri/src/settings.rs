@@ -30,11 +30,17 @@ impl Default for AppSettings {
 }
 
 pub fn load(app: &AppHandle) -> AppSettings {
-    app.store(STORE_FILE)
+    let mut settings: AppSettings = app
+        .store(STORE_FILE)
         .ok()
         .and_then(|store| store.get(STORE_KEY))
         .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    // gemini-2.5 系列已淘汰，遷移到目前的預設模型
+    if settings.gemini_model.starts_with("gemini-2.5") {
+        settings.gemini_model = DEFAULT_MODEL.into();
+    }
+    settings
 }
 
 pub fn save(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {

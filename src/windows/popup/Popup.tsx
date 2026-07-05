@@ -15,9 +15,13 @@ export default function Popup() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showSource, setShowSource] = useState(false);
+  const [sourceHeight, setSourceHeight] = useState(90);
   // 只顯示最後一次請求的結果，避免慢的舊請求蓋掉新結果
   const requestSeq = useRef(0);
   const editDebounce = useRef<number | undefined>(undefined);
+  const resizeState = useRef<{ startY: number; startHeight: number } | null>(
+    null,
+  );
 
   const runTranslate = useCallback(
     async (text: string, engine: string, targetLang: string) => {
@@ -79,7 +83,10 @@ export default function Popup() {
     return () => {
       window.removeEventListener("keydown", onKey);
       window.clearTimeout(editDebounce.current);
+      window.removeEventListener("mousemove", onDividerMouseMove);
+      window.removeEventListener("mouseup", onDividerMouseUp);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const switchEngine = (id: string) => {
@@ -102,6 +109,36 @@ export default function Popup() {
     editDebounce.current = window.setTimeout(() => {
       runTranslate(text, engineId, target);
     }, 500);
+  };
+
+  const MIN_SOURCE_HEIGHT = 40;
+  const MAX_SOURCE_HEIGHT = 400;
+
+  const onDividerMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeState.current = { startY: e.clientY, startHeight: sourceHeight };
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "row-resize";
+    window.addEventListener("mousemove", onDividerMouseMove);
+    window.addEventListener("mouseup", onDividerMouseUp);
+  };
+
+  const onDividerMouseMove = (e: MouseEvent) => {
+    if (!resizeState.current) return;
+    const delta = resizeState.current.startY - e.clientY;
+    const next = Math.min(
+      MAX_SOURCE_HEIGHT,
+      Math.max(MIN_SOURCE_HEIGHT, resizeState.current.startHeight + delta),
+    );
+    setSourceHeight(next);
+  };
+
+  const onDividerMouseUp = () => {
+    resizeState.current = null;
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+    window.removeEventListener("mousemove", onDividerMouseMove);
+    window.removeEventListener("mouseup", onDividerMouseUp);
   };
 
   return (
@@ -140,7 +177,7 @@ export default function Popup() {
         </button>
       </header>
 
-      <div className="selectable flex-1 overflow-auto whitespace-pre-wrap px-3 py-2 text-sm leading-relaxed">
+      <div className="selectable min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-3 py-2 text-sm leading-relaxed">
         {loading ? (
           <div className="animate-pulse space-y-2 pt-1">
             <div className="h-3 w-4/5 rounded bg-zinc-700" />
@@ -153,7 +190,18 @@ export default function Popup() {
         )}
       </div>
 
-      <footer className="border-t border-zinc-800">
+      {showSource && (
+        <div
+          onMouseDown={onDividerMouseDown}
+          className="group relative h-1.5 shrink-0 cursor-row-resize bg-zinc-800 hover:bg-zinc-600"
+        >
+          <div className="absolute left-1/2 top-1/2 h-0.5 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-600 group-hover:bg-zinc-400" />
+        </div>
+      )}
+
+      <footer
+        className={`shrink-0 ${showSource ? "" : "border-t border-zinc-800"}`}
+      >
         <button
           onClick={() => setShowSource((v) => !v)}
           className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
@@ -165,7 +213,7 @@ export default function Popup() {
           <textarea
             value={sourceText}
             onChange={(e) => editSource(e.target.value)}
-            rows={3}
+            style={{ height: sourceHeight }}
             spellCheck={false}
             className="selectable block w-full resize-none bg-transparent px-3 pb-2 text-xs leading-relaxed text-zinc-300 outline-none"
           />

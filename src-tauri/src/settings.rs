@@ -36,8 +36,10 @@ pub fn load(app: &AppHandle) -> AppSettings {
         .and_then(|store| store.get(STORE_KEY))
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default();
-    // gemini-2.5 系列已淘汰，遷移到目前的預設模型
-    if settings.gemini_model.starts_with("gemini-2.5") {
+    // gemini-2.5 系列已淘汰；gemma-4-31b-it 是舊預設，推理模型不適合翻譯
+    // （思考 token 拖慢回應且服務常過載），一併遷移到目前的預設模型
+    if settings.gemini_model.starts_with("gemini-2.5") || settings.gemini_model == "gemma-4-31b-it"
+    {
         settings.gemini_model = DEFAULT_MODEL.into();
     }
     settings

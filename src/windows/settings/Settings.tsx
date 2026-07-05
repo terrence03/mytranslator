@@ -8,8 +8,9 @@ import {
 import { TARGET_LANGS } from "../../lib/languages";
 
 const GEMINI_MODEL_SUGGESTIONS = [
-  "gemma-4-31b-it",
   "gemini-3.1-flash-lite",
+  "gemini-flash-lite-latest",
+  "gemini-3.5-flash",
 ];
 
 const IS_MAC = navigator.userAgent.includes("Mac");
@@ -178,7 +179,8 @@ export default function Settings() {
             </datalist>
           </Field>
           <p className="text-xs text-zinc-500">
-            建議使用 gemma-4-31b-it；gemini-3.1-flash-lite 免費用量較多。
+            建議使用 gemini-3.1-flash-lite：回應最快（約 1
+            秒內）、免費層可用；推理模型（gemma-4、gemini-3.5-flash）翻譯前會先思考，速度慢數倍。
           </p>
           {keyStatus.kind !== "idle" && (
             <p

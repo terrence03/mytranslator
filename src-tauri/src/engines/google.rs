@@ -1,5 +1,5 @@
 use super::{
-    http_client, EngineContext, EngineError, TranslateRequest, TranslateResponse,
+    http_client, send_request, EngineContext, EngineError, TranslateRequest, TranslateResponse,
     TranslationEngine,
 };
 use async_trait::async_trait;
@@ -30,17 +30,16 @@ impl TranslationEngine for GoogleFreeEngine {
         req: &TranslateRequest,
         _ctx: &EngineContext,
     ) -> Result<TranslateResponse, EngineError> {
-        let resp = http_client()
-            .get(ENDPOINT)
-            .query(&[
+        let resp = send_request(|| {
+            http_client().get(ENDPOINT).query(&[
                 ("client", "gtx"),
                 ("sl", req.source.as_str()),
                 ("tl", req.target.as_str()),
                 ("dt", "t"),
                 ("q", req.text.as_str()),
             ])
-            .send()
-            .await?;
+        })
+        .await?;
 
         let status = resp.status();
         if status.as_u16() == 429 {

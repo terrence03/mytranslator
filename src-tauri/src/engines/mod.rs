@@ -47,7 +47,21 @@ pub enum EngineError {
 
 impl From<reqwest::Error> for EngineError {
     fn from(e: reqwest::Error) -> Self {
-        EngineError::Network(e.to_string())
+        // reqwest 0.12 的 Display 不含底層原因（DNS 失敗、連線被拒、TLS 錯誤等），
+        // 手動走訪 source 鏈把真正原因串進訊息，否則只會看到籠統的
+        // "error sending request for url"
+        use std::error::Error as _;
+        let mut msg = e.to_string();
+        let mut source = e.source();
+        while let Some(s) = source {
+            let part = s.to_string();
+            if !msg.contains(&part) {
+                msg.push('：');
+                msg.push_str(&part);
+            }
+            source = s.source();
+        }
+        EngineError::Network(msg)
     }
 }
 
@@ -105,10 +119,26 @@ pub(crate) fn http_client() -> &'static reqwest::Client {
     static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
         reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(20))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            // 常駐 app 在睡眠喚醒或切換網路後，連線池裡的 keep-alive 連線
+            // 常已失效（預設閒置 90 秒才丟棄）；縮短存留時間減少拿到死連線
+            .pool_idle_timeout(std::time::Duration::from_secs(15))
             .build()
             .expect("failed to build http client")
     });
     &CLIENT
+}
+
+/// 送出請求；傳輸層錯誤（非逾時）時重試一次。
+/// 拿到池中已死的連線會立刻失敗，重試會改建新連線。
+/// 翻譯請求皆為冪等，重送安全；逾時不重試以免使用者久等。
+pub(crate) async fn send_request(
+    build: impl Fn() -> reqwest::RequestBuilder,
+) -> Result<reqwest::Response, reqwest::Error> {
+    match build().send().await {
+        Err(e) if !e.is_timeout() => build().send().await,
+        r => r,
+    }
 }
 
 /// 給 LLM 引擎的語言顯示名稱；查不到就原樣回傳代碼

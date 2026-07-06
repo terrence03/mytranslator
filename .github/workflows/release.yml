@@ -63,6 +63,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Extract changelog for this tag
+        id: changelog
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          header="## [$version]"
+          notes=$(awk -v hdr="$header" '
+            index($0, hdr) == 1 { found=1; next }
+            /^## \[/ { if (found) exit }
+            found { print }
+          ' CHANGELOG.md)
+          if [ -z "$(echo "$notes" | tr -d '[:space:]')" ]; then
+            notes="_（此版本尚未於 CHANGELOG.md 中記錄）_"
+          fi
+          {
+            echo "notes<<CHANGELOG_EOF"
+            echo "$notes"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -96,6 +116,8 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "MyTranslator ${{ github.ref_name }}"
           releaseBody: |
+            ${{ steps.changelog.outputs.notes }}
+
             | 平台 | 檔案 |
             |---|---|
             | Windows 安裝版 | `*-setup.exe` |

@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* 淺色/深色以 .dark class 手動切換（由 theme.ts 依設定與系統偏好套用），
+   而非單純跟隨 prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* popup 視窗需要透明背景以呈現圓角卡片；設定頁自行鋪滿底色 */
 html,
 body,

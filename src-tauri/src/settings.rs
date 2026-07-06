@@ -16,6 +16,8 @@ pub struct AppSettings {
     pub target_lang: String,
     pub hotkey_enabled: bool,
     pub gemini_model: String,
+    /// "light" | "dark" | "system"
+    pub theme: String,
 }
 
 impl Default for AppSettings {
@@ -25,6 +27,7 @@ impl Default for AppSettings {
             target_lang: "zh-TW".into(),
             hotkey_enabled: true,
             gemini_model: DEFAULT_MODEL.into(),
+            theme: "system".into(),
         }
     }
 }

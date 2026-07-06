@@ -2,6 +2,7 @@ mod engines;
 mod hotkey;
 mod settings;
 mod tray;
+mod update;
 mod window;
 
 use std::sync::atomic::Ordering;
@@ -114,6 +115,16 @@ fn copy_text(text: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn app_version(app: AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+
+#[tauri::command]
+async fn check_for_update(app: AppHandle) -> Result<update::UpdateInfo, String> {
+    update::check(&app.package_info().version.to_string()).await
+}
+
+#[tauri::command]
 fn get_autostart(app: AppHandle) -> bool {
     app.autolaunch().is_enabled().unwrap_or(false)
 }
@@ -183,6 +194,8 @@ pub fn run() {
             copy_text,
             get_autostart,
             set_autostart,
+            app_version,
+            check_for_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,16 +1,24 @@
 import { useEffect, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   api,
   type AppSettings,
   type EngineInfo,
   type HotkeyStatus,
 } from "../../lib/api";
+import { applyTheme, type ThemeMode } from "../../lib/theme";
 import { TARGET_LANGS } from "../../lib/languages";
 
 const GEMINI_MODEL_SUGGESTIONS = [
   "gemini-3.1-flash-lite",
   "gemini-flash-lite-latest",
   "gemini-3.5-flash",
+];
+
+const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: "light", label: "淺色" },
+  { value: "dark", label: "深色" },
+  { value: "system", label: "系統" },
 ];
 
 const IS_MAC = navigator.userAgent.includes("Mac");
@@ -22,6 +30,13 @@ type KeyStatus =
   | { kind: "ok"; msg: string }
   | { kind: "err"; msg: string };
 
+type UpdateCheckState =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "up-to-date" }
+  | { kind: "available"; latest: string; url: string }
+  | { kind: "err"; msg: string };
+
 export default function Settings() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [engines, setEngines] = useState<EngineInfo[]>([]);
@@ -30,6 +45,10 @@ export default function Settings() {
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
   const [keyStatus, setKeyStatus] = useState<KeyStatus>({ kind: "idle" });
   const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyStatus | null>(null);
+  const [appVersion, setAppVersion] = useState("");
+  const [updateCheck, setUpdateCheck] = useState<UpdateCheckState>({
+    kind: "idle",
+  });
 
   useEffect(() => {
     api.getSettings().then(setSettings).catch(console.error);
@@ -37,7 +56,26 @@ export default function Settings() {
     api.hasApiKey("gemini").then(setHasGeminiKey).catch(console.error);
     api.getAutostart().then(setAutostartState).catch(console.error);
     api.hotkeyStatus().then(setHotkeyStatus).catch(console.error);
+    api.appVersion().then(setAppVersion).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    if (settings) applyTheme(settings.theme);
+  }, [settings?.theme]);
+
+  const checkForUpdate = async () => {
+    setUpdateCheck({ kind: "checking" });
+    try {
+      const info = await api.checkForUpdate();
+      setUpdateCheck(
+        info.hasUpdate
+          ? { kind: "available", latest: info.latest, url: info.url }
+          : { kind: "up-to-date" },
+      );
+    } catch (e) {
+      setUpdateCheck({ kind: "err", msg: String(e) });
+    }
+  };
 
   const update = (patch: Partial<AppSettings>) => {
     if (!settings) return;
@@ -80,11 +118,11 @@ export default function Settings() {
   if (!settings) return null;
 
   return (
-    <div className="h-full overflow-auto bg-zinc-950 text-zinc-100">
+    <div className="h-full overflow-auto bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <div className="mx-auto max-w-xl space-y-6 px-6 py-6">
         <header>
           <h1 className="text-lg font-semibold">MyTranslator 設定</h1>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             在任何應用中選取文字後快速按兩次 {HOTKEY_LABEL}
             ，翻譯結果會出現在游標旁。
           </p>
@@ -95,7 +133,7 @@ export default function Settings() {
             <select
               value={settings.defaultEngine}
               onChange={(e) => update({ defaultEngine: e.target.value })}
-              className="w-52 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-sm outline-none focus:border-zinc-500"
+              className="w-52 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
             >
               {engines.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -109,7 +147,7 @@ export default function Settings() {
             <select
               value={settings.targetLang}
               onChange={(e) => update({ targetLang: e.target.value })}
-              className="w-52 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-sm outline-none focus:border-zinc-500"
+              className="w-52 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
             >
               {TARGET_LANGS.map((l) => (
                 <option key={l.code} value={l.code}>
@@ -127,7 +165,7 @@ export default function Settings() {
             onChange={(v) => update({ hotkeyEnabled: v })}
           />
           {hotkeyStatus && !hotkeyStatus.ok && (
-            <div className="rounded-md border border-amber-600/50 bg-amber-950/40 px-3 py-2 text-xs leading-relaxed text-amber-300">
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:border-amber-600/50 dark:bg-amber-950/40 dark:text-amber-300">
               {hotkeyStatus.message ?? "鍵盤監聽未能啟動。"}
             </div>
           )}
@@ -147,19 +185,19 @@ export default function Settings() {
                 value={geminiKey}
                 onChange={(e) => setGeminiKey(e.target.value)}
                 placeholder={hasGeminiKey ? "已設定（輸入以更換）" : "AIza…"}
-                className="selectable min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-sm outline-none focus:border-zinc-500"
+                className="selectable min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
               />
               <button
                 onClick={saveGeminiKey}
                 disabled={keyStatus.kind === "busy" || (!geminiKey && !hasGeminiKey)}
-                className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm hover:bg-zinc-700 disabled:opacity-40"
+                className="rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm hover:bg-zinc-200 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
               >
                 儲存
               </button>
               <button
                 onClick={validateGeminiKey}
                 disabled={keyStatus.kind === "busy" || (!geminiKey && !hasGeminiKey)}
-                className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm hover:bg-zinc-700 disabled:opacity-40"
+                className="rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm hover:bg-zinc-200 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
               >
                 驗證
               </button>
@@ -170,7 +208,7 @@ export default function Settings() {
               list="gemini-models"
               value={settings.geminiModel}
               onChange={(e) => update({ geminiModel: e.target.value })}
-              className="selectable w-52 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-sm outline-none focus:border-zinc-500"
+              className="selectable w-52 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
             />
             <datalist id="gemini-models">
               {GEMINI_MODEL_SUGGESTIONS.map((m) => (
@@ -186,10 +224,10 @@ export default function Settings() {
             <p
               className={`text-xs ${
                 keyStatus.kind === "err"
-                  ? "text-red-400"
+                  ? "text-red-600 dark:text-red-400"
                   : keyStatus.kind === "ok"
-                    ? "text-emerald-400"
-                    : "text-zinc-400"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-zinc-500 dark:text-zinc-400"
               }`}
             >
               {keyStatus.msg}
@@ -201,11 +239,69 @@ export default function Settings() {
           </p>
         </Section>
 
+        <Section title="外觀">
+          <Field label="主題">
+            <div className="flex overflow-hidden rounded-md border border-zinc-300 dark:border-zinc-700">
+              {THEME_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => update({ theme: value })}
+                  className={`px-3 py-1.5 text-sm ${
+                    settings.theme === value
+                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                      : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Field>
+        </Section>
+
         <Section title="系統">
           <Toggle label="開機時自動啟動" checked={autostart} onChange={toggleAutostart} />
           <p className="text-xs text-zinc-500">
             關閉此視窗不會結束程式，可從系統匣圖示重新開啟設定或結束。
           </p>
+        </Section>
+
+        <Section title="關於">
+          <Field label="目前版本">
+            <span className="text-sm text-zinc-700 dark:text-zinc-300">
+              {appVersion ? `v${appVersion}` : "…"}
+            </span>
+          </Field>
+          <div className="flex items-center justify-between gap-4">
+            <button
+              onClick={checkForUpdate}
+              disabled={updateCheck.kind === "checking"}
+              className="rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm hover:bg-zinc-200 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+            >
+              {updateCheck.kind === "checking" ? "檢查中…" : "檢查更新"}
+            </button>
+            {updateCheck.kind === "up-to-date" && (
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                已是最新版本 ✓
+              </span>
+            )}
+            {updateCheck.kind === "err" && (
+              <span className="text-xs text-red-600 dark:text-red-400">
+                {updateCheck.msg}
+              </span>
+            )}
+          </div>
+          {updateCheck.kind === "available" && (
+            <div className="flex items-center justify-between gap-4 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-600/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+              <span>發現新版本 v{updateCheck.latest}</span>
+              <button
+                onClick={() => openUrl(updateCheck.url)}
+                className="shrink-0 rounded-md border border-emerald-300 px-2 py-1 hover:bg-emerald-100 dark:border-emerald-600/60 dark:hover:bg-emerald-900/40"
+              >
+                前往下載
+              </button>
+            </div>
+          )}
         </Section>
       </div>
     </div>
@@ -220,8 +316,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-      <h2 className="text-sm font-medium text-zinc-300">{title}</h2>
+    <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <h2 className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -236,7 +334,9 @@ function Field({
 }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="shrink-0 text-sm text-zinc-400">{label}</span>
+      <span className="shrink-0 text-sm text-zinc-500 dark:text-zinc-400">
+        {label}
+      </span>
       {children}
     </div>
   );
@@ -253,13 +353,13 @@ function Toggle({
 }) {
   return (
     <label className="flex cursor-pointer items-center justify-between gap-4">
-      <span className="text-sm text-zinc-400">{label}</span>
+      <span className="text-sm text-zinc-500 dark:text-zinc-400">{label}</span>
       <button
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          checked ? "bg-emerald-500" : "bg-zinc-700"
+          checked ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700"
         }`}
       >
         <span

@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, type EngineInfo } from "../../lib/api";
 import { langName } from "../../lib/languages";
+import { applyTheme } from "../../lib/theme";
 
 export default function Popup() {
   const [engines, setEngines] = useState<EngineInfo[]>([]);
@@ -47,6 +48,10 @@ export default function Popup() {
 
   useEffect(() => {
     api.listEngines().then(setEngines).catch(console.error);
+    api
+      .getSettings()
+      .then((s) => applyTheme(s.theme))
+      .catch(console.error);
 
     const unlisten = listen<string>("translate-request", async (event) => {
       const text = event.payload;
@@ -61,6 +66,7 @@ export default function Popup() {
         targetLang = s.targetLang;
         setEngineId(engine);
         setTarget(targetLang);
+        applyTheme(s.theme);
       } catch (e) {
         console.error(e);
       }
@@ -142,18 +148,21 @@ export default function Popup() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-100">
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
       <header
         data-tauri-drag-region
-        className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2"
+        className="flex items-center gap-2 border-b border-zinc-200 px-3 py-2 dark:border-zinc-800"
       >
-        <span data-tauri-drag-region className="text-xs text-zinc-400">
+        <span
+          data-tauri-drag-region
+          className="text-xs text-zinc-500 dark:text-zinc-400"
+        >
           {langName(detected)} → {langName(target)}
         </span>
         <select
           value={engineId}
           onChange={(e) => switchEngine(e.target.value)}
-          className="ml-auto rounded-md border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-xs outline-none focus:border-zinc-500"
+          className="ml-auto rounded-md border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
         >
           {engines.map((e) => (
             <option key={e.id} value={e.id}>
@@ -164,13 +173,13 @@ export default function Popup() {
         <button
           onClick={copyResult}
           disabled={!result || loading}
-          className="rounded-md border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-xs hover:bg-zinc-700 disabled:opacity-40"
+          className="rounded-md border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs hover:bg-zinc-200 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
         >
           {copied ? "已複製 ✓" : "複製"}
         </button>
         <button
           onClick={() => void getCurrentWindow().hide()}
-          className="rounded-md px-1.5 py-0.5 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100"
+          className="rounded-md px-1.5 py-0.5 text-xs text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
           aria-label="關閉"
         >
           ✕
@@ -180,11 +189,11 @@ export default function Popup() {
       <div className="selectable min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-3 py-2 text-sm leading-relaxed">
         {loading ? (
           <div className="animate-pulse space-y-2 pt-1">
-            <div className="h-3 w-4/5 rounded bg-zinc-700" />
-            <div className="h-3 w-3/5 rounded bg-zinc-700" />
+            <div className="h-3 w-4/5 rounded bg-zinc-300 dark:bg-zinc-700" />
+            <div className="h-3 w-3/5 rounded bg-zinc-300 dark:bg-zinc-700" />
           </div>
         ) : error ? (
-          <p className="text-red-400">{error}</p>
+          <p className="text-red-600 dark:text-red-400">{error}</p>
         ) : (
           result
         )}
@@ -193,18 +202,18 @@ export default function Popup() {
       {showSource && (
         <div
           onMouseDown={onDividerMouseDown}
-          className="group relative h-1.5 shrink-0 cursor-row-resize bg-zinc-800 hover:bg-zinc-600"
+          className="group relative h-1.5 shrink-0 cursor-row-resize bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-600"
         >
-          <div className="absolute left-1/2 top-1/2 h-0.5 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-600 group-hover:bg-zinc-400" />
+          <div className="absolute left-1/2 top-1/2 h-0.5 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-400 group-hover:bg-zinc-500 dark:bg-zinc-600 dark:group-hover:bg-zinc-400" />
         </div>
       )}
 
       <footer
-        className={`shrink-0 ${showSource ? "" : "border-t border-zinc-800"}`}
+        className={`shrink-0 ${showSource ? "" : "border-t border-zinc-200 dark:border-zinc-800"}`}
       >
         <button
           onClick={() => setShowSource((v) => !v)}
-          className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
+          className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
         >
           <span className="shrink-0">{showSource ? "▾" : "▸"} 原文</span>
           {!showSource && <span className="truncate">{sourceText}</span>}
@@ -215,7 +224,7 @@ export default function Popup() {
             onChange={(e) => editSource(e.target.value)}
             style={{ height: sourceHeight }}
             spellCheck={false}
-            className="selectable block w-full resize-none bg-transparent px-3 pb-2 text-xs leading-relaxed text-zinc-300 outline-none"
+            className="selectable block w-full resize-none bg-transparent px-3 pb-2 text-xs leading-relaxed text-zinc-600 outline-none dark:text-zinc-300"
           />
         )}
       </footer>

@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { ThemeMode } from "./theme";
 
 export interface TranslateResponse {
   text: string;
@@ -17,12 +18,20 @@ export interface AppSettings {
   targetLang: string;
   hotkeyEnabled: boolean;
   geminiModel: string;
+  theme: ThemeMode;
 }
 
 export interface HotkeyStatus {
   backend: string;
   ok: boolean;
   message: string | null;
+}
+
+export interface UpdateInfo {
+  current: string;
+  latest: string;
+  hasUpdate: boolean;
+  url: string;
 }
 
 export const api = {
@@ -41,4 +50,6 @@ export const api = {
   copyText: (text: string) => invoke<void>("copy_text", { text }),
   getAutostart: () => invoke<boolean>("get_autostart"),
   setAutostart: (enabled: boolean) => invoke<void>("set_autostart", { enabled }),
+  appVersion: () => invoke<string>("app_version"),
+  checkForUpdate: () => invoke<UpdateInfo>("check_for_update"),
 };

@@ -3,6 +3,7 @@ mod hotkey;
 mod settings;
 mod tray;
 mod update;
+mod usage;
 mod window;
 
 use std::sync::atomic::Ordering;
@@ -30,19 +31,41 @@ async fn translate(
         .ok_or_else(|| format!("未知的翻譯引擎：{engine_id}"))?;
 
     let s = settings::load(&app);
+    let chars = text.chars().count() as u64;
+    usage::check_limit(&app, &engine_id, engine.display_name(), &s, chars)?;
+
     let ctx = EngineContext {
         api_key: settings::get_api_key(&engine_id),
-        model: Some(s.gemini_model),
+        model: Some(s.gemini_model.clone()),
     };
     let req = TranslateRequest {
         text,
         source: "auto".into(),
         target,
     };
-    engine
+    let mut res = engine
         .translate(&req, &ctx)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    res.usage_warning = usage::record(
+        &app,
+        &engine_id,
+        engine.display_name(),
+        &s,
+        chars,
+        res.tokens,
+    );
+    Ok(res)
+}
+
+#[tauri::command]
+fn get_usage(app: AppHandle, engine_id: String) -> usage::EngineUsage {
+    usage::get(&app, &engine_id)
+}
+
+#[tauri::command]
+fn reset_usage(app: AppHandle, engine_id: String) {
+    usage::reset(&app, &engine_id)
 }
 
 #[tauri::command]
@@ -74,32 +97,39 @@ fn has_api_key(engine_id: String) -> bool {
 
 /// 用給定 key 打一次最小的翻譯請求驗證有效性；key 為空時退回已儲存的 key
 #[tauri::command]
-async fn validate_gemini_key(
+async fn validate_api_key(
     state: State<'_, AppState>,
     app: AppHandle,
+    engine_id: String,
     key: String,
 ) -> Result<(), String> {
-    let engine = state.registry.get("gemini").ok_or("engine missing")?;
+    let engine = state
+        .registry
+        .get(&engine_id)
+        .ok_or_else(|| format!("未知的翻譯引擎：{engine_id}"))?;
     let s = settings::load(&app);
     let api_key = if key.is_empty() {
-        settings::get_api_key("gemini")
+        settings::get_api_key(&engine_id)
     } else {
         Some(key)
     };
     let ctx = EngineContext {
         api_key,
-        model: Some(s.gemini_model),
+        model: Some(s.gemini_model.clone()),
     };
     let req = TranslateRequest {
         text: "hi".into(),
         source: "auto".into(),
-        target: s.target_lang,
+        target: s.target_lang.clone(),
     };
-    engine
+    // 驗證請求同樣會消耗 Google 端額度，照樣記錄（但不受上限阻擋）
+    let res = engine
         .translate(&req, &ctx)
         .await
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    let chars = req.text.chars().count() as u64;
+    usage::record(&app, &engine_id, engine.display_name(), &s, chars, res.tokens);
+    Ok(())
 }
 
 #[tauri::command]
@@ -189,7 +219,9 @@ pub fn run() {
             update_settings,
             set_api_key,
             has_api_key,
-            validate_gemini_key,
+            validate_api_key,
+            get_usage,
+            reset_usage,
             hotkey_status,
             copy_text,
             get_autostart,

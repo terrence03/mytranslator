@@ -18,6 +18,10 @@ pub struct AppSettings {
     pub gemini_model: String,
     /// "light" | "dark" | "system"
     pub theme: String,
+    /// Google Cloud 翻譯每月字元上限（本機估算），0 表示不限制
+    pub google_cloud_monthly_char_limit: u64,
+    /// Gemini 每日請求上限（本機估算），0 表示不限制
+    pub gemini_daily_request_limit: u64,
 }
 
 impl Default for AppSettings {
@@ -28,6 +32,9 @@ impl Default for AppSettings {
             hotkey_enabled: true,
             gemini_model: DEFAULT_MODEL.into(),
             theme: "system".into(),
+            // Cloud Translation 每月免費額度
+            google_cloud_monthly_char_limit: 500_000,
+            gemini_daily_request_limit: 0,
         }
     }
 }

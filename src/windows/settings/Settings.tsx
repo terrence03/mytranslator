@@ -4,6 +4,7 @@ import {
   api,
   type AppSettings,
   type EngineInfo,
+  type EngineUsage,
   type HotkeyStatus,
 } from "../../lib/api";
 import { applyTheme, type ThemeMode } from "../../lib/theme";
@@ -41,9 +42,6 @@ export default function Settings() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [engines, setEngines] = useState<EngineInfo[]>([]);
   const [autostart, setAutostartState] = useState(false);
-  const [geminiKey, setGeminiKey] = useState("");
-  const [hasGeminiKey, setHasGeminiKey] = useState(false);
-  const [keyStatus, setKeyStatus] = useState<KeyStatus>({ kind: "idle" });
   const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyStatus | null>(null);
   const [appVersion, setAppVersion] = useState("");
   const [updateCheck, setUpdateCheck] = useState<UpdateCheckState>({
@@ -53,7 +51,6 @@ export default function Settings() {
   useEffect(() => {
     api.getSettings().then(setSettings).catch(console.error);
     api.listEngines().then(setEngines).catch(console.error);
-    api.hasApiKey("gemini").then(setHasGeminiKey).catch(console.error);
     api.getAutostart().then(setAutostartState).catch(console.error);
     api.hotkeyStatus().then(setHotkeyStatus).catch(console.error);
     api.appVersion().then(setAppVersion).catch(console.error);
@@ -87,32 +84,6 @@ export default function Settings() {
   const toggleAutostart = (enabled: boolean) => {
     setAutostartState(enabled);
     api.setAutostart(enabled).catch(console.error);
-  };
-
-  const saveGeminiKey = async () => {
-    setKeyStatus({ kind: "busy", msg: "儲存中…" });
-    try {
-      await api.setApiKey("gemini", geminiKey);
-      const saved = geminiKey.length > 0;
-      setHasGeminiKey(saved);
-      setGeminiKey("");
-      setKeyStatus({
-        kind: "ok",
-        msg: saved ? "已儲存到系統憑證庫" : "已清除 API key",
-      });
-    } catch (e) {
-      setKeyStatus({ kind: "err", msg: String(e) });
-    }
-  };
-
-  const validateGeminiKey = async () => {
-    setKeyStatus({ kind: "busy", msg: "驗證中…" });
-    try {
-      await api.validateGeminiKey(geminiKey);
-      setKeyStatus({ kind: "ok", msg: "驗證成功，key 可用 ✓" });
-    } catch (e) {
-      setKeyStatus({ kind: "err", msg: String(e) });
-    }
   };
 
   if (!settings) return null;
@@ -178,31 +149,7 @@ export default function Settings() {
         </Section>
 
         <Section title="Gemini AI">
-          <Field label="API key">
-            <div className="flex w-full gap-2">
-              <input
-                type="password"
-                value={geminiKey}
-                onChange={(e) => setGeminiKey(e.target.value)}
-                placeholder={hasGeminiKey ? "已設定（輸入以更換）" : "AIza…"}
-                className="selectable min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
-              />
-              <button
-                onClick={saveGeminiKey}
-                disabled={keyStatus.kind === "busy" || (!geminiKey && !hasGeminiKey)}
-                className="rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm hover:bg-zinc-200 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-              >
-                儲存
-              </button>
-              <button
-                onClick={validateGeminiKey}
-                disabled={keyStatus.kind === "busy" || (!geminiKey && !hasGeminiKey)}
-                className="rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm hover:bg-zinc-200 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-              >
-                驗證
-              </button>
-            </div>
-          </Field>
+          <ApiKeyField engineId="gemini" placeholder="AIza…" />
           <Field label="模型">
             <input
               list="gemini-models"
@@ -220,22 +167,38 @@ export default function Settings() {
             建議使用 gemini-3.1-flash-lite：回應最快（約 1
             秒內）、免費層可用；推理模型（gemma-4、gemini-3.5-flash）翻譯前會先思考，速度慢數倍。
           </p>
-          {keyStatus.kind !== "idle" && (
-            <p
-              className={`text-xs ${
-                keyStatus.kind === "err"
-                  ? "text-red-600 dark:text-red-400"
-                  : keyStatus.kind === "ok"
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-zinc-500 dark:text-zinc-400"
-              }`}
-            >
-              {keyStatus.msg}
-            </p>
-          )}
+          <UsageField
+            engineId="gemini"
+            kind="requests-day"
+            limit={settings.geminiDailyRequestLimit}
+            onLimitChange={(v) => update({ geminiDailyRequestLimit: v })}
+          />
           <p className="text-xs text-zinc-500">
-            API key 儲存在作業系統憑證庫（Windows 憑證管理員 / macOS
-            鑰匙圈），不會以明文寫入磁碟。可到 Google AI Studio 免費取得。
+            可到 Google AI Studio 免費取得 API key。免費層每日請求上限約 500
+            次（以 AI Studio 的 Rate Limit 頁面為準）。
+          </p>
+        </Section>
+
+        <Section title="Google Cloud 翻譯">
+          <ApiKeyField engineId="google-cloud" placeholder="AIza…" />
+          <UsageField
+            engineId="google-cloud"
+            kind="chars-month"
+            limit={settings.googleCloudMonthlyCharLimit}
+            onLimitChange={(v) => update({ googleCloudMonthlyCharLimit: v })}
+          />
+          <p className="text-xs text-zinc-500">
+            官方 Cloud Translation API，比免費的「Google 翻譯」穩定，每月前 50
+            萬字元免費。需在已綁定帳單的 Google Cloud 專案啟用 Cloud
+            Translation API，再到「API 和服務 → 憑證」建立 API key。
+          </p>
+          <p className="text-xs text-zinc-500">
+            用量為本機估算，只計算這台電腦送出的請求。建議同時在 Google Cloud
+            的「配額」頁調低每日字元配額，作為不會超額的硬上限。
+          </p>
+          <p className="text-xs text-zinc-500">
+            所有 API key 都儲存在作業系統憑證庫（Windows 憑證管理員 / macOS
+            鑰匙圈），不會以明文寫入磁碟。
           </p>
         </Section>
 
@@ -304,6 +267,188 @@ export default function Settings() {
           )}
         </Section>
       </div>
+    </div>
+  );
+}
+
+function ApiKeyField({
+  engineId,
+  placeholder,
+}: {
+  engineId: string;
+  placeholder: string;
+}) {
+  const [key, setKey] = useState("");
+  const [hasKey, setHasKey] = useState(false);
+  const [status, setStatus] = useState<KeyStatus>({ kind: "idle" });
+
+  useEffect(() => {
+    api.hasApiKey(engineId).then(setHasKey).catch(console.error);
+  }, [engineId]);
+
+  const save = async () => {
+    setStatus({ kind: "busy", msg: "儲存中…" });
+    try {
+      await api.setApiKey(engineId, key);
+      const saved = key.length > 0;
+      setHasKey(saved);
+      setKey("");
+      setStatus({
+        kind: "ok",
+        msg: saved ? "已儲存到系統憑證庫" : "已清除 API key",
+      });
+    } catch (e) {
+      setStatus({ kind: "err", msg: String(e) });
+    }
+  };
+
+  const validate = async () => {
+    setStatus({ kind: "busy", msg: "驗證中…" });
+    try {
+      await api.validateApiKey(engineId, key);
+      setStatus({ kind: "ok", msg: "驗證成功，key 可用 ✓" });
+    } catch (e) {
+      setStatus({ kind: "err", msg: String(e) });
+    }
+  };
+
+  const disabled = status.kind === "busy" || (!key && !hasKey);
+
+  return (
+    <>
+      <Field label="API key">
+        <div className="flex w-full gap-2">
+          <input
+            type="password"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder={hasKey ? "已設定（輸入以更換）" : placeholder}
+            className="selectable min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
+          />
+          <button
+            onClick={save}
+            disabled={disabled}
+            className="rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm hover:bg-zinc-200 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+          >
+            儲存
+          </button>
+          <button
+            onClick={validate}
+            disabled={disabled}
+            className="rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm hover:bg-zinc-200 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+          >
+            驗證
+          </button>
+        </div>
+      </Field>
+      {status.kind !== "idle" && (
+        <p
+          className={`text-xs ${
+            status.kind === "err"
+              ? "text-red-600 dark:text-red-400"
+              : status.kind === "ok"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-zinc-500 dark:text-zinc-400"
+          }`}
+        >
+          {status.msg}
+        </p>
+      )}
+    </>
+  );
+}
+
+const nf = new Intl.NumberFormat("en-US");
+
+function UsageField({
+  engineId,
+  kind,
+  limit,
+  onLimitChange,
+}: {
+  engineId: string;
+  kind: "chars-month" | "requests-day";
+  limit: number;
+  onLimitChange: (v: number) => void;
+}) {
+  const [usage, setUsage] = useState<EngineUsage | null>(null);
+
+  const refresh = () => {
+    api.getUsage(engineId).then(setUsage).catch(console.error);
+  };
+
+  // 設定視窗關閉只是隱藏，重新聚焦時刷新，才看得到期間翻譯累積的用量
+  useEffect(() => {
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [engineId]);
+
+  const reset = async () => {
+    await api.resetUsage(engineId).catch(console.error);
+    refresh();
+  };
+
+  const isChars = kind === "chars-month";
+  const used = usage ? (isChars ? usage.monthChars : usage.dayRequests) : 0;
+  const unit = isChars ? "字元" : "次";
+  const ratio = limit > 0 ? Math.min(used / limit, 1) : 0;
+  const barColor =
+    ratio >= 1 ? "bg-red-500" : ratio >= 0.8 ? "bg-amber-500" : "bg-emerald-500";
+
+  return (
+    <div className="space-y-2">
+      <Field label={isChars ? "本月用量" : "今日請求"}>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-zinc-700 tabular-nums dark:text-zinc-300">
+            {nf.format(used)}
+            {limit > 0 ? ` / ${nf.format(limit)}` : ""} {unit}
+            {limit > 0 && (
+              <span className="text-zinc-500">
+                （剩 {nf.format(Math.max(limit - used, 0))}）
+              </span>
+            )}
+          </span>
+          <button
+            onClick={reset}
+            title="把本機計數歸零（不影響 Google 端的實際用量）"
+            className="rounded-md border border-zinc-300 bg-zinc-100 px-2 py-1 text-xs hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+          >
+            歸零
+          </button>
+        </div>
+      </Field>
+      {limit > 0 && (
+        <div className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+          <div
+            className={`h-full ${barColor} transition-all`}
+            style={{ width: `${ratio * 100}%` }}
+          />
+        </div>
+      )}
+      {!isChars && usage && usage.monthTokens > 0 && (
+        <p className="text-xs text-zinc-500">
+          本月累計 {nf.format(usage.monthTokens)} tokens
+        </p>
+      )}
+      <Field label={isChars ? "每月上限（字元）" : "每日請求上限"}>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={0}
+            step={isChars ? 10000 : 10}
+            value={limit}
+            onChange={(e) => {
+              const v = Math.floor(Number(e.target.value));
+              onLimitChange(Number.isFinite(v) && v > 0 ? v : 0);
+            }}
+            className="selectable w-32 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-right text-sm tabular-nums outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
+          />
+          <span className="w-16 text-xs text-zinc-500">
+            {limit > 0 ? "達到即擋下" : "不限制"}
+          </span>
+        </div>
+      </Field>
     </div>
   );
 }

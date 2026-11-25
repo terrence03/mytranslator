@@ -79,6 +79,8 @@ fn parse_response(body: &Value) -> Result<TranslateResponse, EngineError> {
         text,
         detected_source,
         engine: "google",
+        tokens: None,
+        usage_warning: None,
     })
 }
 

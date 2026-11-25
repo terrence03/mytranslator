@@ -1,8 +1,10 @@
 pub mod gemini;
 mod google;
+mod google_cloud;
 
 pub use gemini::GeminiEngine;
 pub use google::GoogleFreeEngine;
+pub use google_cloud::GoogleCloudEngine;
 
 use async_trait::async_trait;
 use serde::Serialize;
@@ -22,6 +24,11 @@ pub struct TranslateResponse {
     pub text: String,
     pub detected_source: Option<String>,
     pub engine: &'static str,
+    /// LLM 引擎回報的 token 用量，供本機用量統計，不傳給前端
+    #[serde(skip)]
+    pub tokens: Option<u64>,
+    /// 接近用量上限時的提醒，由 command 層填入
+    pub usage_warning: Option<String>,
 }
 
 /// 由呼叫端（command 層）解析好再傳入，引擎本身不碰設定存取
@@ -92,7 +99,11 @@ pub struct EngineRegistry {
 impl EngineRegistry {
     pub fn new() -> Self {
         Self {
-            engines: vec![Box::new(GoogleFreeEngine), Box::new(GeminiEngine)],
+            engines: vec![
+                Box::new(GoogleFreeEngine),
+                Box::new(GoogleCloudEngine),
+                Box::new(GeminiEngine),
+            ],
         }
     }
 
@@ -139,6 +150,19 @@ pub(crate) async fn send_request(
         Err(e) if !e.is_timeout() => build().send().await,
         r => r,
     }
+}
+
+/// 讀出 Google API 錯誤回應中的 error.message；讀不到回傳空字串
+pub(crate) async fn api_error_message(resp: reqwest::Response) -> String {
+    resp.json::<serde_json::Value>()
+        .await
+        .ok()
+        .and_then(|b| {
+            b.pointer("/error/message")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        })
+        .unwrap_or_default()
 }
 
 /// 給 LLM 引擎的語言顯示名稱；查不到就原樣回傳代碼

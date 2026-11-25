@@ -4,6 +4,16 @@
 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)，版本號遵循
 [語意化版本 (SemVer)](https://semver.org/lang/zh-TW/)。
 
+## [Unreleased]
+
+### 新增
+
+- 新增「Google Cloud 翻譯」引擎（官方 Cloud Translation API），比免費的 Google
+  翻譯端點穩定，每月前 50 萬字元免費；可在設定頁填入並驗證 API key。
+- 設定頁顯示 Google Cloud 翻譯（本月字元數）與 Gemini（今日請求數、本月
+  tokens）的本機估算用量，並可設定上限：達到上限時擋下請求，達 80% 時翻譯彈窗
+  顯示提醒。Google Cloud 翻譯預設上限為免費額度 500,000 字元／月。
+
 ## [0.1.2] - 2026-07-06
 
 ### 新增

@@ -7,6 +7,7 @@
 - **雙擊複製觸發翻譯**：被動監聽全域鍵盤事件（不攔截、不影響正常複製），400ms 內兩次 Ctrl+C 觸發。Windows/macOS/Linux X11 走 `rdev`，Linux Wayland 走 `evdev`（讀 `/dev/input`）
 - **可插拔翻譯引擎**：
   - Google 翻譯（免費網頁端點，無需 API key）
+  - Google Cloud 翻譯（官方 Cloud Translation API，自備 API key；每月前 50 萬字元免費，需在綁定帳單的 GCP 專案啟用 Cloud Translation API）
   - Gemini AI（自備 API key，可於 [Google AI Studio](https://aistudio.google.com/apikey) 免費取得）
 - API key 儲存於作業系統憑證庫（Windows 憑證管理員 / macOS 鑰匙圈）
 - 常駐系統匣、單一實例、可設定開機自啟
@@ -22,7 +23,7 @@ src/                    # 前端（依 window label 路由）
   lib/                  # invoke 封裝、語言清單
 src-tauri/src/
   hotkey/               # 雙擊偵測狀態機（含單元測試）+ rdev / evdev 監聽後端
-  engines/              # TranslationEngine trait + google / gemini 實作
+  engines/              # TranslationEngine trait + google / google_cloud / gemini 實作
   settings.rs           # tauri-plugin-store + keyring
   window.rs             # popup 游標定位（多螢幕 / DPI 夾取）
   tray.rs               # 系統匣選單

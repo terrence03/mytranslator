@@ -14,6 +14,7 @@ export default function Popup() {
   const [detected, setDetected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usageWarning, setUsageWarning] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showSource, setShowSource] = useState(false);
   const [sourceHeight, setSourceHeight] = useState(90);
@@ -29,12 +30,14 @@ export default function Popup() {
       const seq = ++requestSeq.current;
       setLoading(true);
       setError(null);
+      setUsageWarning(null);
       setCopied(false);
       try {
         const res = await api.translate(engine, text, targetLang);
         if (seq !== requestSeq.current) return;
         setResult(res.text);
         setDetected(res.detectedSource);
+        setUsageWarning(res.usageWarning);
       } catch (e) {
         if (seq !== requestSeq.current) return;
         setResult("");
@@ -185,6 +188,12 @@ export default function Popup() {
           ✕
         </button>
       </header>
+
+      {usageWarning && !loading && !error && (
+        <div className="shrink-0 border-b border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-800 dark:border-amber-600/50 dark:bg-amber-950/40 dark:text-amber-300">
+          ⚠ {usageWarning}
+        </div>
+      )}
 
       <div className="selectable min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-3 py-2 text-sm leading-relaxed">
         {loading ? (

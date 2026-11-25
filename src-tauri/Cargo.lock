@@ -2425,6 +2425,7 @@ version = "0.1.2"
 dependencies = [
  "arboard",
  "async-trait",
+ "chrono",
  "evdev",
  "keyring",
  "macos-accessibility-client",

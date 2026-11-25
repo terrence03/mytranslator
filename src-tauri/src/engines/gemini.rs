@@ -1,5 +1,5 @@
 use super::{
-    http_client, lang_display, send_request, EngineContext, EngineError, TranslateRequest,
+    api_error_message, http_client, lang_display, send_request, EngineContext, EngineError, TranslateRequest,
     TranslateResponse, TranslationEngine,
 };
 use async_trait::async_trait;
@@ -81,16 +81,7 @@ impl TranslationEngine for GeminiEngine {
             401 | 403 => return Err(EngineError::InvalidApiKey(status)),
             429 => return Err(EngineError::RateLimited),
             s if !(200..300).contains(&s) => {
-                let detail = resp
-                    .json::<Value>()
-                    .await
-                    .ok()
-                    .and_then(|b| {
-                        b.pointer("/error/message")
-                            .and_then(Value::as_str)
-                            .map(str::to_string)
-                    })
-                    .unwrap_or_default();
+                let detail = api_error_message(resp).await;
                 // 400 多半是 key 無效，但也可能是請求參數問題，靠訊息內容區分
                 if s == 400 && detail.contains("API key") {
                     return Err(EngineError::InvalidApiKey(s));
@@ -137,10 +128,16 @@ fn parse_response(body: &Value) -> Result<TranslateResponse, EngineError> {
         return Err(EngineError::BadResponse("empty translation".into()));
     }
 
+    let tokens = body
+        .pointer("/usageMetadata/totalTokenCount")
+        .and_then(Value::as_u64);
+
     Ok(TranslateResponse {
         text,
         detected_source: None,
         engine: "gemini",
+        tokens,
+        usage_warning: None,
     })
 }
 
@@ -155,11 +152,13 @@ mod tests {
             "candidates": [{
                 "content": { "parts": [{ "text": "你好，世界\n" }], "role": "model" },
                 "finishReason": "STOP"
-            }]
+            }],
+            "usageMetadata": { "promptTokenCount": 40, "candidatesTokenCount": 5, "totalTokenCount": 45 }
         });
         let r = parse_response(&body).unwrap();
         assert_eq!(r.text, "你好，世界");
         assert!(r.detected_source.is_none());
+        assert_eq!(r.tokens, Some(45));
     }
 
     #[test]

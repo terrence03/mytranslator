@@ -4,7 +4,7 @@
 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)，版本號遵循
 [語意化版本 (SemVer)](https://semver.org/lang/zh-TW/)。
 
-## [Unreleased]
+## [0.1.3] - 2026-11-25
 
 ### 新增
 

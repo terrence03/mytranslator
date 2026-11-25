@@ -27,7 +27,7 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            default_engine: "google".into(),
+            default_engine: "google-cloud".into(),
             target_lang: "zh-TW".into(),
             hotkey_enabled: true,
             gemini_model: DEFAULT_MODEL.into(),
@@ -51,6 +51,10 @@ pub fn load(app: &AppHandle) -> AppSettings {
     if settings.gemini_model.starts_with("gemini-2.5") || settings.gemini_model == "gemma-4-31b-it"
     {
         settings.gemini_model = DEFAULT_MODEL.into();
+    }
+    // 免費的 Google 網頁端點（"google"）已移除，改用官方 Cloud Translation
+    if settings.default_engine == "google" {
+        settings.default_engine = "google-cloud".into();
     }
     settings
 }

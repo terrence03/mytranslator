@@ -188,8 +188,7 @@ export default function Settings() {
             onLimitChange={(v) => update({ googleCloudMonthlyCharLimit: v })}
           />
           <p className="text-xs text-zinc-500">
-            官方 Cloud Translation API，比免費的「Google 翻譯」穩定，每月前 50
-            萬字元免費。需在已綁定帳單的 Google Cloud 專案啟用 Cloud
+            官方 Cloud Translation API，每月前 50 萬字元免費。需在已綁定帳單的 Google Cloud 專案啟用 Cloud
             Translation API，再到「API 和服務 → 憑證」建立 API key。
           </p>
           <p className="text-xs text-zinc-500">

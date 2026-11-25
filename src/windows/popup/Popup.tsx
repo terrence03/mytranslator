@@ -7,7 +7,7 @@ import { applyTheme } from "../../lib/theme";
 
 export default function Popup() {
   const [engines, setEngines] = useState<EngineInfo[]>([]);
-  const [engineId, setEngineId] = useState("google");
+  const [engineId, setEngineId] = useState("google-cloud");
   const [target, setTarget] = useState("zh-TW");
   const [sourceText, setSourceText] = useState("");
   const [result, setResult] = useState("");

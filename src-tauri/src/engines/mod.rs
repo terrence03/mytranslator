@@ -1,9 +1,7 @@
 pub mod gemini;
-mod google;
 mod google_cloud;
 
 pub use gemini::GeminiEngine;
-pub use google::GoogleFreeEngine;
 pub use google_cloud::GoogleCloudEngine;
 
 use async_trait::async_trait;
@@ -100,7 +98,6 @@ impl EngineRegistry {
     pub fn new() -> Self {
         Self {
             engines: vec![
-                Box::new(GoogleFreeEngine),
                 Box::new(GoogleCloudEngine),
                 Box::new(GeminiEngine),
             ],

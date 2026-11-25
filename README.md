@@ -6,7 +6,6 @@
 
 - **雙擊複製觸發翻譯**：被動監聽全域鍵盤事件（不攔截、不影響正常複製），400ms 內兩次 Ctrl+C 觸發。Windows/macOS/Linux X11 走 `rdev`，Linux Wayland 走 `evdev`（讀 `/dev/input`）
 - **可插拔翻譯引擎**：
-  - Google 翻譯（免費網頁端點，無需 API key）
   - Google Cloud 翻譯（官方 Cloud Translation API，自備 API key；每月前 50 萬字元免費，需在綁定帳單的 GCP 專案啟用 Cloud Translation API）
   - Gemini AI（自備 API key，可於 [Google AI Studio](https://aistudio.google.com/apikey) 免費取得）
 - API key 儲存於作業系統憑證庫（Windows 憑證管理員 / macOS 鑰匙圈）
@@ -79,5 +78,5 @@ git tag v0.1.0 && git push origin v0.1.0
 
 ## 已知限制
 
-- Google 免費端點為非官方介面，可能被限流（429）；遇到時可切換 Gemini 引擎
+- 所有翻譯引擎都需自備 API key，首次使用前請到設定頁填入
 - 超過 5000 字元的複製內容不觸發翻譯（避免大檔複製誤觸）

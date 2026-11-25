@@ -324,7 +324,7 @@ mod tests {
         };
         assert!(limit_for("google-cloud", &s).is_none());
         assert!(limit_for("gemini", &s).is_none());
-        assert!(limit_for("google", &AppSettings::default()).is_none());
+        assert!(limit_for("unknown", &AppSettings::default()).is_none());
     }
 
     #[test]

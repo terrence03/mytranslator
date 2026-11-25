@@ -30,7 +30,7 @@ src-tauri/src/
 
 ## 開發
 
-前置需求：Node.js 20+、pnpm、Rust stable。
+前置需求：Node.js 24+（見 `.nvmrc`，可用 `nvm use` 切換）、pnpm、Rust stable。
 
 ```bash
 pnpm install
